@@ -2,59 +2,73 @@
 
 Reliable UDP with TCP mechanisms — implemented in Python.
 
-This protocol copies essential TCP functionality over UDP:
+This protocol implements reliable data transfer over UDP:
 - **3-way handshake** (SYN → SYN-ACK → ACK)
 - **Sequence & acknowledgment numbers** for ordered delivery
-- **Header and payload checksums** for integrity verification
+- **Checksums** for header and payload integrity
+- **Retransmission** with configurable timeout and retry count
+- **Go-Back-N sliding window** for pipelined bulk transfer
 
 ## Project Structure
 
 ```
-reliable_udp/          # Core library
+reliable_udp/            # Core library
 ├── __init__.py
-├── packet.py          # Header parsing, checksum, serialization
-├── manager.py         # Connection state management
-└── errors.py          # Custom exceptions
+├── packet.py            # Header parsing, checksum, serialization
+├── manager.py           # Connection state
+├── errors.py            # Custom exceptions
+└── transport.py         # Retransmission, handshake, sliding window
 
-examples/              # Working demos
-├── echo_server.py     # Listens on port 5050, echoes data back
-└── echo_client.py     # Connects, sends "Echo me!", prints reply
+examples/                # Working demos
+├── echo_server.py       # Simple echo with retransmission
+├── echo_client.py       # Sends "Echo me!", prints reply
+├── bulk_receiver.py     # Sliding window receiver (64 KB)
+└── bulk_sender.py       # Sliding window sender
 
-tests/                 # Unit tests
-└── test_packet.py     # Checksum, parsing, and serialization tests
+benchmark/               # Performance testing
+├── lossy_socket.py      # Simulates packet loss
+└── run_benchmark.py     # Throughput comparison: reliable vs raw UDP
+
+tests/                   # Unit + integration tests
+├── test_packet.py       # Checksum and parsing tests
+└── test_transport.py    # Retransmission and window tests
 ```
-
-## Packet Format (14-byte header)
-
-| Bytes  | Field            | Type          |
-|--------|------------------|---------------|
-| 0–3    | Sequence number  | u32 big-endian|
-| 4–7    | Ack number       | u32 big-endian|
-| 8      | Padding          | u8 (0x00)     |
-| 9      | Packet type      | u8            |
-| 10–11  | Header checksum  | u16 big-endian|
-| 12–13  | Full checksum    | u16 big-endian|
-| 14+    | Payload data     | variable      |
 
 ## Running the Examples
 
 ```bash
-# Terminal 1 — start the server
-python examples/echo_server.py
+# Echo (two terminals)
+python examples/echo_server.py       # Terminal 1
+python examples/echo_client.py       # Terminal 2
 
-# Terminal 2 — run the client
-python examples/echo_client.py
+# Bulk transfer with sliding window (two terminals)
+python examples/bulk_receiver.py     # Terminal 1
+python examples/bulk_sender.py       # Terminal 2
 ```
+
+## Running the Benchmark
+
+```bash
+python benchmark/run_benchmark.py
+```
+
+Compares Reliable UDP against Raw UDP under **10% simulated packet loss**:
+
+- **Reliable UDP:** 100% data delivered (via sliding window + retransmission)
+- **Raw UDP:** ~85-95% delivered (data lost permanently)
+
+This confirms the protocol's reliability under a degraded network.
 
 ## Running Tests
 
+
 ```bash
-python -m pytest tests/
+python -m pytest tests/ -v
 # or
 python -m unittest discover tests/
 ```
 
 ## Requirements
 
-- Python 3.10+ (uses `match` compatible enums and type unions)
+- Python 3.10+
 - No external dependencies — stdlib only
